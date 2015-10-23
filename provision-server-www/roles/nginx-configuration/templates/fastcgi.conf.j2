@@ -1,0 +1,89 @@
+# Only pass PHP files back to the FASTCGI processor
+location ~ \.(php)$ {
+    {% if 'WebServers_Production' in group_names %}
+    # Set Debug Header for troubleshooting
+    if ($no_cache_get = 1) {
+      add_header X-Cache-Debug "$no_cache_get $no_cache_set $reason";
+      add_header X-Cache $upstream_cache_status;
+    }
+
+    # Add Cache status to response headers, note that this header declaration will overwrite any lower add_headers
+    # Only one set of add_headers context can be set at a time
+    add_header X-Cache $upstream_cache_status;
+    {% endif %}
+
+    # PHP by default prior to 5.3.x tries to guess which file to run, attempts .php but then tries the actual file after
+    # For instance, if a request is made for /forum/avatar/1232.jpg/file.php which does not exist but if /forum/avatar/1232.jpg does,
+    # the PHP interpreter will process /forum/avatar/1232.jpg instead.
+    # If this contains embedded PHP code, this code will be executed accordingly.
+
+    # Fixes are:
+    # 1) Set cgi.fix_pathinfo=0 in php.ini. This causes the PHP interpreter to only try the literal path given and to stop processing if the file is not found.
+    # 2) location ~ \.php$ {return 403;} in location blocks where there are uploads
+    # 3) try_files $uri = 404; to filter out problem condition, basically try the exact URL and send 404 if doesn't exist
+    try_files $uri = 404;
+
+    # If given a URL like this: "/index.php/article/0001", the PATH_INFO will be /article/0001, it strips off the leading PHP file
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+
+    # Sets a file name that will be appended after a URI that ends with a slash, in the value of the $fastcgi_script_name variable
+    # Example
+    # - /page.php = $document_root/page.php
+    # - / = $document_root/index.php
+    fastcgi_index index.php;
+
+    # Include the default FASTCGI_PARAMS
+    include fastcgi_params;
+
+    # Defines the SCRIPT_FILENAME as not a hardcoded path, inferred from file location on disk
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+
+    # Uses a keepalive connection on the socket with the FASTCGI proxy, requires that keepalive is on upstream block also.
+    # If on same machine, effect is negligable but can be much better if used with remote servers
+    fastcgi_keep_conn on;
+
+    {% if 'WebServers_Production' in group_names %}
+    # Bypass the Microcache if the $no_cache variable is set
+    fastcgi_cache_bypass $no_cache_get;
+    fastcgi_no_cache $no_cache_set;
+
+    # Name of the cache to use, defined in the HTTP context under fastcgi_cache_path
+    fastcgi_cache microcache;
+
+    # Defines how the keys are named
+    fastcgi_cache_key $scheme$host$request_uri$request_method$server_port;
+
+    # Defines the HTTP statuses that the cache is valid for and for how long
+    fastcgi_cache_valid 200 301 302 60m;
+    fastcgi_cache_valid 404 403 1m;
+    fastcgi_cache_valid any 2m;
+
+    # This will use previously cached data if the upstream server returns an Error, Server Timeout, Invalid Header Data, or Server 500 Error
+    # The "updating" parameter allows the cache to return data while the file is being background updated
+    fastcgi_cache_use_stale updating error timeout invalid_header http_500 http_503;
+    {% endif %}
+
+    # Pass in the Set-Cookie and Cookie headers to the backend
+    fastcgi_pass_header "Set-Cookie";
+    fastcgi_pass_header "Cookie";
+    fastcgi_pass_header "X-Accel-Redirect";
+    fastcgi_pass_header "X-Accel-Expires";
+
+    {% if 'WebServers_Production' in group_names %}
+    # Ignore the following headers to always return cached content even when these headers are set (usually asks for no-cache)
+    fastcgi_ignore_headers Cache-Control Expires;
+    {% endif %}
+
+    # Increase timeout for FastCGI connections
+    fastcgi_read_timeout 300;
+
+    # FastCGI Buffer Settings (4096 is default on Ubuntu Linux), 64 * 4k allows for 262,144k in memory pages
+    fastcgi_buffer_size 4k;
+    fastcgi_buffers 64 4k;
+
+    # Hide the following headers
+    fastcgi_hide_header "X-Powered-By";
+
+    # Pass to PHP-FPM using Unix Socket, a bit faster
+    fastcgi_pass unix:/var/run/php5-fpm.sock;
+}

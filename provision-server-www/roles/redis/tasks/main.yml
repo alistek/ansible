@@ -1,0 +1,29 @@
+---
+- name: Install Redis Server Package
+  apt: name=redis-server
+       state=present
+  register: redis_changed
+
+- name: Install PHP Redis Package
+  apt: name=php5-redis
+       state=present
+  register: redis_changed
+
+- name: Modify Redis MaxMemory
+  lineinfile: dest=/etc/redis/redis.conf
+              regexp='^# maxmemory <bytes>'
+              insertafter='^# maxmemory <bytes>'
+              line=' maxmemory 64mb'
+              state=present
+  register: redis_changed
+
+- name: Modify Redis Memory Policy
+  lineinfile: dest=/etc/redis/redis.conf
+              regexp='^# maxmemory-policy volatile-lru'
+              insertafter='^# maxmemory-policy volatile-lru'
+              line=' maxmemory-policy allkeys-lru'
+              state=present
+  register: redis_changed
+
+- name: Reload the Redis Service
+  service: name=redis-server state=stopped enabled=no

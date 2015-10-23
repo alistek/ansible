@@ -1,0 +1,34 @@
+---
+- name: Install PHP-FPM Package
+  apt: pkg=php5-fpm state=latest force=yes
+
+- name: Install PHP-FPM CLI Package
+  apt: pkg=php5-cli state=latest force=yes
+
+- name: Install PHP MySQL ND Package
+  apt: pkg=php5-mysqlnd state=latest force=yes
+
+- name: Copy php-fpm.conf
+  template:
+    src: php-fpm.conf.j2
+    dest: "/etc/php5/fpm/php-fpm.conf"
+  register: php-fpm_conf
+
+- name: Copy php.ini
+  template:
+    src: php.ini.j2
+    dest: "/etc/php5/fpm/php.ini"
+  register: php-fpm_php
+
+- name: Copy www.conf
+  template:
+    src: www.conf.j2
+    dest: "/etc/php5/fpm/pool.d/www.conf"
+  register: php-fpm_www
+
+- debug: php-fpm_www
+- debug: php-fpm_php
+- debug: php-fpm_conf
+
+- name: Restart PHP5-FPM
+  service: name="php5-fpm" state="restarted"

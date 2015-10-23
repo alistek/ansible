@@ -1,0 +1,3 @@
+---
+- name: Add Ansible Repository into /etc/apt/sources.list
+  apt_repository: repo='ppa:ansible/ansible' state=present

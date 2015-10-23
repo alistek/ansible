@@ -1,0 +1,3 @@
+---
+  - name: Install Git Package
+    apt: pkg=git state=latest force=yes

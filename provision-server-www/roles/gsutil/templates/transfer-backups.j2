@@ -1,0 +1,13 @@
+#!/bin/sh
+
+GSBUCKET=lc-backup
+GSUTILPATH=/usr/local/bin/gsutil
+DAY=$(date +"%A")
+
+/usr/local/bin/gsutil cp /srv/backups/mysql/${DAY}.zip gs://${GSBUCKET}/{{ ansible_fqdn }}/mysql/${DAY}.zip
+/usr/local/bin/gsutil cp /srv/backups/apps/${DAY}.tar.gz gs://${GSBUCKET}/{{ ansible_fqdn }}/apps/${DAY}.tar.gz
+/usr/local/bin/gsutil cp /srv/backups/logs/${DAY}.tar.gz gs://${GSBUCKET}/{{ ansible_fqdn }}/logs/${DAY}.tar.gz
+
+rm /srv/backups/mysql/${DAY}.zip
+rm /srv/backups/apps/${DAY}.tar.gz
+rm /srv/backups/logs/${DAY}.tar.gz

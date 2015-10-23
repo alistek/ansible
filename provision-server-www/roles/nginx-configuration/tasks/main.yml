@@ -1,0 +1,45 @@
+---
+- name: Create vHosts.d Directory
+  file: path=/etc/nginx/vhosts.d state=directory
+
+- name: Create Microcache Directory
+  file: path=/var/nginx state=directory
+
+- name: Create Microcache Directory
+  file: path=/var/nginx/cache state=directory
+
+- name: Create Microcache Directory
+  file: path=/var/nginx/cache/fcgi state=directory
+
+- name: Copy NGINX Configuration
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: 0644
+  register: nginx_config_changed
+
+- name: Copy PHP-FPM Configuration
+  template:
+    src: fastcgi.conf.j2
+    dest: /etc/nginx/fastcgi.conf
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Copy MIME Type Configuration
+  template:
+    src: mime.types.j2
+    dest: /etc/nginx/mime.types
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Restart NGINX
+  service: name="nginx" state="restarted"
+  when: nginx_installed.changed
+
+- name: Reload NGINX
+  service: name="nginx" state="reloaded"
+  when: nginx_config_changed.changed

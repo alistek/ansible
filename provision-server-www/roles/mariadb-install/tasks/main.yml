@@ -1,0 +1,20 @@
+---
+- name: Download and Add MariaDB Key to Apt-Get Keyring
+  apt_key: keyserver=hkp://keyserver.ubuntu.com:80 id=0xcbcb082a1bb943db state=present
+
+- name: Add MariaDB Repository into /etc/apt/sources.list
+  apt_repository: repo='deb http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.0/ubuntu utopic main' state=present
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_release == 'utopic'
+
+- name: Add MariaDB Repository into /etc/apt/sources.list
+  apt_repository: repo='deb http://nyc2.mirrors.digitalocean.com/mariadb/repo/10.0/ubuntu vivid main' state=present
+  when: ansible_distribution == 'Ubuntu' and ansible_distribution_release == 'vivid'
+
+- name: Install MariaDB Package
+  apt: pkg=mariadb-server state=latest
+
+- name: Install MySQLDB Python Package
+  apt: pkg=python-mysqldb state=latest
+
+- name: Start Mysql Service
+  service: name=mysql state=started enabled=yes

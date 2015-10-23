@@ -1,0 +1,98 @@
+---
+- name: Download GOGS
+  get_url: url=https://github.com/gogits/gogs/releases/download/v0.6.5/linux_amd64.zip
+           dest="/root/gogs-0.6.5.zip"
+
+- name: Expand GOGS zip
+  command: unzip /root/gogs-0.6.5.zip
+  args:
+   chdir: /root
+
+- name: Create GOGS Application Directory
+  file: path="/usr/lib/gogs"
+        state=directory
+        owner=root
+        group=root
+        mode=0755
+
+- name: Create GOGS Custom Directory
+  file: path="/usr/lib/gogs/custom"
+        state=directory
+        owner=root
+        group=root
+        mode=0755
+
+- name: Create GOGS Configuration Directory
+  file: path="/usr/lib/gogs/custom/conf"
+        state=directory
+        owner=root
+        group=root
+        mode=0755
+
+- name: Create Repositories Directory
+  file: path="/srv/repositories"
+        state=directory
+        owner=root
+        group=root
+        mode=0700
+
+- name: Move GOGS directory
+  command: mv /root/gogs /usr/lib/gogs
+
+- name: Create Backup Directory
+  file: path="/srv/backups"
+        state=directory
+        owner=root
+        group=root
+        mode=0700
+
+- name: Create MySQL Backup Directory
+  file: path="/srv/backups/mysql"
+        state=directory
+        owner=root
+        group=root
+        mode=0700
+
+- name: Create Apps Backup Directory
+  file: path="/srv/backups/apps"
+        state=directory
+        owner=root
+        group=root
+        mode=0700
+
+- name: Create Logs Directory
+  file: path="/srv/backups/logs"
+        state=directory
+        owner=root
+        group=root
+        mode=0700
+
+- name: Install makepasswd
+  apt: pkg=makepasswd
+       update_cache=yes
+       state=latest
+
+- name: Generate MYSQL Password
+  command: makepasswd --char 16
+  register: mysql_password
+
+- name: Create GOGS SQL Database
+  mysql_db: name=gogs
+            state=present
+            collation=utf8_general_ci
+            encoding=utf8
+
+- name: Create GOGS SQL Database user - Random Password
+  mysql_user: name="gogs"
+              password="{{ mysql_password.stdout }}"
+              priv="gogs.*:ALL"
+              state=present
+
+- name: Add GOGS User (non-sudo)
+  user: name=gogs comment="GOGS Service"
+
+- name: Copy NGINX Configuration
+  template: src=gogs.conf.j2 dest=/etc/nginx/vhosts.d/gogs.conf owner=root mode=0644
+
+- name: Copy SystemD Configuration
+  template: src=gogs.service.j2 dest=/etc/systemd/system/gogs.service owner=root mode=0644

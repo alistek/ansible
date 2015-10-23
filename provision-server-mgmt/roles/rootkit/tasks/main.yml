@@ -1,0 +1,12 @@
+- name: Install or update CHKRootKit
+  apt:
+    pkg: "chkrootkit"
+    state: latest
+
+- name: Install or update RKHunter
+  apt:
+    pkg: "rkhunter"
+    state: latest
+
+- name: Add RKHunter Cron job
+  cron: name="RKHunter Update" minute="0" hour="3" job="/usr/bin/rkhunter --cronjob --update --quiet"

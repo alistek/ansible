@@ -1,0 +1,46 @@
+---
+- name: Provision Server
+  hosts: WebServers_Production:WebServers_Development
+  roles:
+    - common
+    - swap
+    - ufw
+    - fail2ban
+    - antivirus
+    - rootkit
+    - mariadb-install
+    - mariadb-configuration
+    - php-fpm
+    - nginx-install
+    - nginx-configuration
+    - rsyslog
+    - monit
+    - gsutil
+    - new-relic
+    - { role: postfix,
+        postfix_domain: "{{ ansible_fqdn }}",
+        postfix_use_smtp: true
+      }
+  tasks:
+  - name: Reboot Server
+    command: shutdown -r now "Ansible updates triggered"
+    async: 0
+    poll: 0
+    ignore_errors: true
+    when: file.stat.exists == true
+    register: reboot
+  - name: Waiting For Reboot
+    local_action: wait_for host="{{ inventory_hostname }}"
+                  state=started
+                  port="{{ ansible_ssh_port }}"
+                  delay=45
+                  timeout=300
+                  connect_timeout=45
+    sudo: false
+    when: reboot.changed
+  - name: Check PHP-FPM Running
+    service: name=php5-fpm state=running enabled=yes
+  - name: Check NGINX Running
+    service: name=nginx state=running enabled=yes
+  - name: Check MariaDB Running
+    service: name=mysql state=running enabled=yes

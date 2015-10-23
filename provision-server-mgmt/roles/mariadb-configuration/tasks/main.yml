@@ -1,0 +1,51 @@
+---
+- name: Check for .my.cnf file
+  stat: path=/root/.my.cnf
+  register: mycnf
+
+- name: Install makepasswd
+  apt: >
+    pkg=makepasswd
+    update_cache=yes
+    state=latest
+
+- name: Generate MYSQL Password
+  command: makepasswd --char 16
+  register: mysql_root_password
+  when: not mycnf.stat.exists
+
+- name: Change root user password on first run
+  mysql_user: login_user=root
+              login_password=''
+              name=root
+              password="{{ mysql_root_password.stdout }}"
+              priv=*.*:ALL,GRANT
+              host="{{ item }}"
+              check_implicit_admin=true
+  with_items:
+    - "{{ ansible_hostname }}"
+    - 127.0.0.1
+    - ::1
+    - localhost
+  ignore_errors: true
+  when: not mycnf.stat.exists
+
+- name: Copy my.cnf server file
+  template: src=my.cnf.server.j2 dest=/etc/mysql/my.cnf owner=root mode=0644
+
+- name: Copy .my.cnf file with root password credentials
+  template: src=my.cnf.j2 dest=/root/.my.cnf owner=root mode=0600
+  when: not mycnf.stat.exists
+
+- name: Restart MySQL
+  service: name=mysql state=restarted
+  when: not mycnf.stat.exists
+
+- name: Delete anonymous MySQL server user
+  action: mysql_user user="" host="{{ ansible_hostname }}" state="absent"
+
+- name: Delete anonymous MySQL server user for localhost
+  action: mysql_user user="" state="absent"
+
+- name: Remove the MySQL test database
+  action: mysql_db db=test state=absent

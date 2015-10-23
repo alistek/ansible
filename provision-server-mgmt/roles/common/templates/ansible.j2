@@ -1,0 +1,3 @@
+0 3 * * * root /usr/bin/freshclam --quiet -l /var/log/clamav/freshclam.log --config-file /etc/clamav/freshclam.conf
+30 3 * * * root /usr/bin/clamscan -i -r /srv
+0 3 * * * root /usr/bin/rkhunter --cronjob --update --quiet

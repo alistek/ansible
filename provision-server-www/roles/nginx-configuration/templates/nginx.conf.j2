@@ -1,0 +1,199 @@
+# NGINX default user that needs access to the following locations:
+# - document root (e.g. /srv/apps)
+# - php-fpm socket, if applicable (e.g. /var/run/php-fpm/php-fpm.sock)
+# - fast-cgi cache directory (e.g. /usr/share/nginx/cache/fcgi)
+# - fast-cgi temp directory (e.g. /var/lib/nginx/fastcgi/*)
+user  www-data;
+
+# File to log errors to
+error_log  /var/log/nginx/error.log warn;
+# Process ID file, application status control relies on this
+pid        /var/run/nginx.pid;
+
+# Worker Processes should be equal to number of CPU's, this will automatically calculate that
+worker_processes  auto;
+# This is the number of open files that NGINX can keep open at a time, this ignores the ulimit limits
+worker_rlimit_nofile 65536;
+# Worker Priority - Scheduling priority defined by NICE command (linux process priority)
+worker_priority -5;
+
+events {
+    # Limit to max number of connections, this should be higher as 1024 is default, 4096
+    worker_connections  4096;
+    # NGINX immediately accepts as many connections as it can
+    multi_accept on;
+    # EPoll is most CPU efficient, available on kernals 2.6 and later
+    use epoll;
+}
+
+http {
+    # Default MIME Type definitions that NGINX knows about
+    include       mime.types;
+    # Anything defined in the mime.types include will serve using that method but this is a fallback
+    # if we don't understand the type and will use this just in case
+    default_type  application/octet-stream;
+    # Remove NGINX version number, note that the server header is always returned as server: nginx
+    server_tokens off;
+
+    # Set the character Set
+    charset utf-8;
+
+    # Define the log format for "main"
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for" "$http_cf_ray"'
+                      '$request_length $request_time '
+                      '"$upstream_response_length" "$upstream_response_time"';
+
+    # Setting the buffer command, keeps logging in memory until buffer is hit and then flushes to disk but
+    # in this case, turning off the access logs will help a lot with IO
+    access_log /var/log/nginx/access.log main;
+
+    # Don't log URL not found requests
+    log_not_found off;
+
+    # Allows NGINX to handle ~600 site definitions
+    server_names_hash_max_size 16384;
+    # Default NGINX max domain name is 64 characters, this allows up to 1024 characters
+    server_names_hash_bucket_size 1024;
+    # Max size of stored type definitions
+    types_hash_max_size 4096;
+    # Max length of MIME Type, etc data
+    types_hash_bucket_size 1024;
+
+    # This is max POST size NGINX takes before writing temp file to disk
+    client_body_buffer_size 4m;
+    # This is max Header size NGINX takes before writing temp file to disk
+    client_header_buffer_size 16k;
+    # The maximum allowed size for a client request.
+    # If the maximum size is exceeded, then Nginx will spit out a 413 error or Request Entity Too Large
+    client_max_body_size 128m;
+    # The maximum number and size of buffers for large client headers
+    large_client_header_buffers 4 16k;
+
+    # Time NGINX will wait for a client body or client header to be sent after request before closing the connection
+    client_body_timeout 12;
+    client_header_timeout 12;
+    # Time to keep a client's connection open, default is 75, 60 is fine
+    keepalive_timeout 15;
+    # Specifies the response timeout to the client. This timeout does not apply to the entire transfer but, rather, only between two subsequent client-read operations
+    send_timeout 2;
+    # Proxy timeouts, should really almost never be hit since self-contained on this server
+    proxy_connect_timeout   10;
+    proxy_send_timeout      15;
+    proxy_read_timeout      20;
+
+    # TCP_NODELAY and TCP_NOPUSH are technically mutually exclusive though both can be activated as of Linux kernal 2.5.x
+    # TCP_NOPUSH is required with SENDFILE
+    # Full Explanation: https://t37.net/nginx-optimization-understanding-sendfile-tcp_nodelay-and-tcp_nopush.html
+
+    # Combined to sendfile, tcp_nopush ensures that the packets are full before being sent to the client.
+    # This greatly reduces network overhead and speeds the way files are sent.
+    # Then, when it reaches the last – probably halt – packet, Nginx removes tcp_nopush.
+    # Then, tcp_nodelay forces the socket to send the data, saving up to 0.2 seconds per file.
+
+    # Allows OS to transfer data from a file descriptor to another directly in kernel space, replaces read/write operations
+    # Essential if serving locally stored files, if reverse-proxying from an application server, should be off
+    sendfile	on;
+    # TCP_NOPUSH (activates TCP_CORK on non-BSD systems), blocks the data until the packet reaches the MSS, which equals to the MTU minus the 40 or 60 bytes of the IP header
+    tcp_nopush	on;
+
+    # Disable NAGLE algorithm which adds 0.2s latency, intention is a wait so that packet isn't too small
+    tcp_nodelay on;
+
+    # Reset a clients connection (free up memory) if not responding
+    reset_timedout_connection on;
+
+    # Define the Microcache to use, a zone, the amount of time and maximum size
+    fastcgi_cache_path /var/nginx/cache/fcgi levels=1:2 keys_zone=microcache:30m max_size=96m inactive=1h;
+
+    # Cache Open File Descriptors in memory
+    # Cache 10000 entries closing handles that have no hits after 30s and keeping valid hits for 60s if used twice
+    open_file_cache max=10000 inactive=30s;
+    open_file_cache_valid 60s;
+    open_file_cache_min_uses 2;
+    open_file_cache_errors off;
+
+    # Add GZIP Support to NGINX
+    # Note that if transfer-encoding header is snet then content-length is not sent, via HTTP specs
+    # This is because we are getting pieces of the content at a time and content-length is for entire document
+    gzip on;
+    # text/html does not need to be listed as it is always included by nginx.
+    # WOFF files are already compressed, so application/x-font-woff is not needed.
+    gzip_types
+    text/plain
+    text/css
+    text/x-component
+    application/atom+xml
+    application/json
+    text/javascript
+    application/javascript
+    application/x-javascript
+    application/xhtml+xml
+    text/xml
+    application/xml
+    application/xml+rss
+    image/svg+xml
+    application/vnd.ms-fontobject
+    application/x-font-ttf
+    image/x-icon
+    font/opentype;
+
+    # Send the Vary header
+    # The Vary header says that depending on the request (in this case the client's Accept Encoding request),
+    # we may serve different content (i.e. gzipped vs non-gzipped). As a further example, we could Send
+    # User-Agent and that will imply that depending on the client we will send different content (like mobile/desktop)
+    gzip_vary on;
+    # Support GZIPed content for below types
+    gzip_proxied any;
+    # Disable GZIP for MSIE 1-6
+    gzip_disable "MSIE [1-6]\.(?!.*SV1)";
+    # Minimum content size to GZIP
+    gzip_min_length 256;
+    # GZIP Compression level, 5 is good tradeoff of CPU usage and gains
+    gzip_comp_level 5;
+    # GZIP HTTP version
+    gzip_http_version 1.1;
+    # GZIP Buffers, equal to current memory page size (4096 on Ubuntu servers)
+    gzip_buffers 32 4k;
+
+    # CloudFlare proxy addresses.
+    set_real_ip_from    199.27.128.0/21;
+    set_real_ip_from    173.245.48.0/20;
+    set_real_ip_from    103.21.244.0/22;
+    set_real_ip_from    103.22.200.0/22;
+    set_real_ip_from    103.31.4.0/22;
+    set_real_ip_from    141.101.64.0/18;
+    set_real_ip_from    108.162.192.0/18;
+    set_real_ip_from    190.93.240.0/20;
+    set_real_ip_from    188.114.96.0/20;
+    set_real_ip_from    197.234.240.0/22;
+    set_real_ip_from    198.41.128.0/17;
+    set_real_ip_from    162.158.0.0/15;
+    set_real_ip_from    104.16.0.0/12;
+    set_real_ip_from    172.64.0.0/13;
+    set_real_ip_from    2400:cb00::/32;
+    set_real_ip_from    2606:4700::/32;
+    set_real_ip_from    2803:f800::/32;
+    set_real_ip_from    2405:b500::/32;
+    set_real_ip_from    2405:8100::/32;
+    real_ip_header      CF-Connecting-IP;
+
+    # NGNIX Stats Server
+    server {
+      server_name = 127.0.0.1;
+
+      # Allow only localhost and deny all others
+      location /nginx_status {
+        stub_status on;
+        access_log off;
+        allow 127.0.0.1;
+        deny all;
+      }
+    }
+
+    # Include additional configurations
+    include /etc/nginx/conf.d/*.conf;
+    # Include Virtual Hosts
+    include /etc/nginx/vhosts.d/*.conf;
+}

@@ -1,0 +1,37 @@
+---
+- name: Provision Server Management
+  hosts: Management_Servers
+  roles:
+    - common
+    - ansible
+    - swap
+    - ufw
+    - fail2ban
+    - antivirus
+    - rootkit
+    - rsyslog
+    - monit
+    - gsutil
+    - new-relic
+    - { role: postfix,
+        postfix_domain: "{{ ansible_fqdn }}",
+        postfix_use_smtp: true
+      }
+    - { role: mariadb-install,
+        when: server_role == 'gogs'
+      }
+    - { role: mariadb-configuration,
+        when: server_role == 'gogs'
+      }
+    - { role: git,
+        when: server_role == 'gogs'
+      }
+    - { role: nginx-install,
+        when: server_role == 'gogs'
+      }
+    - { role: nginx-configuration,
+        when: server_role == 'gogs'
+      }
+    - { role: gogs,
+        when: server_role == 'gogs'
+      }

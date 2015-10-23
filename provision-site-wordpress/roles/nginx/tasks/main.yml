@@ -1,0 +1,31 @@
+---
+- name: Copy NGINX vHost Configuration
+  template: src=vhost.conf.j2
+            dest="/etc/nginx/vhosts.d/{{ website_root }}.conf"
+            owner=root
+            group=root
+            mode=0644
+
+- name: Create NGINX Site Directory
+  file: path="/srv/apps/{{ website_root }}/public"
+        state=directory
+        owner=www-data
+        group=www-data
+        mode=0775
+
+- name: Create NGINX Log Directory
+  file: path="/srv/log/{{ website_root }}"
+        state=directory
+        owner=www-data
+        group=www-data
+        mode=0700
+
+- name: Create NGINX TMP Directory
+  file: path="/srv/tmp/{{ website_root }}"
+        state=directory
+        owner=www-data
+        group=www-data
+        mode=0700
+
+- name: Reload the NGINX Service
+  service: name=nginx state=reloaded enabled=yes

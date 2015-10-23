@@ -1,0 +1,14 @@
+#!/bin/sh
+
+setfacl -R -d -m u::rwx public
+setfacl -R -d -m g::rwx public
+setfacl -R -d -x o public
+
+chmod 600 wp-config.php
+
+chown www-data:www-data wp-config.php
+chown -R www-data:www-data public
+
+find public -type d -exec chmod g+s {} +
+find public -type d -exec chmod 0770 {} +;
+find public -type f -exec chmod 0660 {} +;

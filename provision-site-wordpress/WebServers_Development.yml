@@ -1,0 +1,36 @@
+---
+- hosts: WebServers_Development
+  pre_tasks:
+  - name: Install makepasswd
+    apt: >
+      pkg=makepasswd
+      update_cache=yes
+      state=latest
+
+  - name: Generate MySQL DB name - Production
+    command: /bin/bash -c 'arr=$(echo "{{ website_root }}" | tr '.' '_'); str=${arr[0]}; echo ${str:0:60}'
+    register: mysql_database_prod
+    when: rewrite_www != "dev"
+
+  - name: Generate MYSQL User - Production
+    command: /bin/bash -c 'arr=$(echo "{{ website_root }}" | tr '.' '_'); str=${arr[0]}; echo ${str:0:16}'
+    register: mysql_user_prod
+    when: rewrite_www != "dev"
+
+  - name: Generate MySQL DB name - DEV
+    command: /bin/bash -c 'arr=$(echo "{{ website_root }}" | tr '.' '_'); str=${arr[0]}; echo ${str:0:54}_dev'
+    register: mysql_database_dev
+    when: rewrite_www == "dev"
+
+  - name: Generate MYSQL User - DEV
+    command: /bin/bash -c 'arr=$(echo "{{ website_root }}" | tr '.' '_'); str=${arr[0]}; echo ${str:0:12}_dev'
+    register: mysql_user_dev
+    when: rewrite_www == "dev"
+
+  - name: Generate MYSQL Password
+    command: makepasswd --char 16
+    register: mysql_password
+  roles:
+    - nginx
+    - mysql
+    - wordpress

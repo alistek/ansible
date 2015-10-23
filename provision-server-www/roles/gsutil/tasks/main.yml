@@ -1,0 +1,8 @@
+---
+- name: Copy GSUTIL Boto Config
+  template:
+    src: boto.j2
+    dest: /root/.boto
+    owner: root
+    group: root
+    mode: 0700

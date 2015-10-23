@@ -1,0 +1,27 @@
+---
+- name: Install MYSQL Python Package
+  apt: name=python-mysqldb
+       update_cache=yes
+       state=present
+
+- name: Create MYSQL Database - Production
+  mysql_db: name="{{ mysql_database_prod.stdout }}" state=present
+  when: rewrite_www != "dev"
+
+- name: Create MYSQL Database User with Random Password - Production
+  mysql_user: name="{{ mysql_user_prod.stdout }}"
+              password="{{ mysql_password.stdout }}"
+              priv="{{ mysql_database_prod.stdout }}.*:ALL"
+              state=present
+  when: rewrite_www != "dev"
+
+- name: Create MYSQL Database - Dev
+  mysql_db: name="{{ mysql_database_dev.stdout }}" state=present
+  when: rewrite_www == "dev"
+
+- name: Create MYSQL Database User with Random Password - Dev
+  mysql_user: name="{{ mysql_user_dev.stdout }}"
+              password="{{ mysql_password.stdout }}"
+              priv="{{ mysql_database_dev.stdout }}.*:ALL"
+              state=present
+  when: rewrite_www == "dev"

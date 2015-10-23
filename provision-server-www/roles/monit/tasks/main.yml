@@ -1,0 +1,48 @@
+---
+- name: Install Monit Package
+  apt: pkg=monit state=latest
+  register: monit_installed
+
+- name: Copy Monit Configuration
+  template:
+    src: monitrc.j2
+    dest: /etc/monit/monitrc
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Copy PHP5-FPM Monitor
+  template:
+    src: php5-fpm.j2
+    dest: /etc/monit/conf.d/php5-fpm
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Copy MariaDB Monitor
+  template:
+    src: mariadb.j2
+    dest: /etc/monit/conf.d/mariadb
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Copy NGINX Monitor
+  template:
+    src: nginx.j2
+    dest: /etc/monit/conf.d/nginx
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Copy PostFix Monitor
+  template:
+    src: postfix.j2
+    dest: /etc/monit/conf.d/postfix
+    owner: root
+    group: root
+    mode: 0700
+
+- name: Restart Monit
+  service: name="monit" state="restarted"
+  when: monit_installed.changed

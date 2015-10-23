@@ -1,0 +1,113 @@
+---
+- name: Install Update Notifier Common Package
+  apt: pkg=update-notifier-common state=latest force=yes
+
+- name: Update Cache
+  apt: update_cache=yes force=yes
+  register: cache_update
+
+- name: Check if packages to Update
+  command: /usr/bin/aptitude -F%p --disable-columns search ~U
+  register: packages
+
+- name: Upgrade available packages
+  apt: upgrade=dist update_cache=yes force=yes
+  when: packages.stdout != ""
+
+- name: Check if a reboot is required
+  stat: path=/var/run/reboot-required get_md5=no
+  register: file
+
+- name: Increase ULimit
+  shell: ulimit -n 100000
+
+- name: Copy sysctl.conf Parameters
+  template:
+    src: sysctl.conf.j2
+    dest: /etc/sysctl.conf
+    owner: root
+    group: root
+  register: sysctl
+
+- name: Reload sysctl
+  shell: sysctl -p
+  when: sysctl.changed
+
+- name: Set timezone variables
+  copy: content='America/Chicago'
+        dest=/etc/timezone
+        owner=root
+        group=root
+        mode=0644
+        backup=yes
+
+- name: update timezone
+  command: dpkg-reconfigure --frontend noninteractive tzdata
+
+- name: Install Software Properties Common Package
+  apt: pkg=software-properties-common state=latest force=yes
+
+- name: Install Zip Package
+  apt: pkg=zip state=latest force=yes
+
+- name: Install Anacron Package
+  apt: pkg=anacron state=latest force=yes
+
+- name: Install Python PIP Package
+  apt: pkg=python-pip state=latest force=yes
+
+- name: Install Python DEV Package
+  apt: pkg=python-dev state=latest force=yes
+
+- name: Install libFFI DEV Package
+  apt: pkg=libffi-dev state=latest force=yes
+
+- name: Install libxml2 Package
+  apt: pkg=libxml2 state=latest force=yes
+
+- name: Install libXML2-Dev Package
+  apt: pkg=libxml2-dev state=latest force=yes
+
+- name: Install libxslt1-dev Package
+  apt: pkg=libxslt1-dev state=latest force=yes
+
+- name: Install OpenSSL DEV Package
+  apt: pkg=libssl-dev state=latest force=yes
+
+- name: Install libcurl4-openssl-dev Package
+  apt: pkg=libcurl4-openssl-dev state=latest force=yes
+
+- name: Install ruby-dev Package
+  apt: pkg=ruby-dev state=latest force=yes
+
+- name: Install build-essential Package
+  apt: pkg=build-essential state=latest force=yes
+
+- name: Install git Package
+  apt: pkg=git state=latest force=yes
+
+- name: Install HTOP
+  apt: pkg=htop state=latest force=yes
+
+- name: Install GoAccess
+  apt: pkg=goaccess state=latest force=yes
+
+- name: Install Lynx Package
+  apt: pkg=lynx state=latest force=yes
+
+- name: Install HTTP2LIB via PIP
+  pip: name=httplib2 state=latest
+
+- name: Install GSUtil via PIP
+  pip: name=gsutil state=latest
+
+- name: Install NTP Package
+  apt: pkg=ntp state=latest force=yes
+
+- name: Copy ansible CRON JOBS
+  template:
+    src: ansible.j2
+    dest: /etc/cron.d/ansible
+    owner: root
+    group: root
+  register: cronjob

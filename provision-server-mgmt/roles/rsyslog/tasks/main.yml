@@ -1,0 +1,17 @@
+---
+- name: Install rsyslog tools
+  apt: pkg={{ item }} state=latest
+  with_items:
+    - rsyslog
+    - rsyslog-gnutls
+
+- name: Configure Loggly
+  template: src=22-loggly.conf.j2 dest=/etc/rsyslog.d/22-loggly.conf
+
+- name: Change Rsysslog Permissions
+  file: path="/var/spool/rsyslog" owner=syslog group=adm state=directory recurse=yes
+  register: rsyslog_permission_change
+
+- name: Rstart rsyslog
+  service: name=rsyslog state=restarted
+  when: rsyslog_permission_change.changed

@@ -1,0 +1,9 @@
+- name: Install or update ClamAV
+  apt: pkg=clamav state=latest
+
+- name: Copy ClamAV Config
+  template:
+    src: clamd.conf.j2
+    dest: /etc/clamav/clamd.conf
+    owner: root
+    group: root
